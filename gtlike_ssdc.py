@@ -276,6 +276,12 @@ if probs_e2 != []:
     outfile.close()
 
 
+    
+#cleaning up
+for cleanup in glob.glob('*.*'):
+    if 'fit_final' not in cleanup and 'outfile' not in cleanup:
+        os.remove(cleanup)
+
 
 
 
