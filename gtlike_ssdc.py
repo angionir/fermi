@@ -54,7 +54,7 @@ catalog = '4FGL'
 
 
 #create working directory
-wpath = '/dataweb/scratchtools/'
+wpath = DATAPATH
 os.mkdir(wpath+ID)
 os.chdir(wpath+ID)
 
