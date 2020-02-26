@@ -1,6 +1,7 @@
 import numpy as np
 from fermipy.gtanalysis import GTAnalysis
 from astropy.io import fits
+from astropy.io import ascii
 from astropy.coordinates import SkyCoord
 import astropy.units as u
 from glob import glob
@@ -51,10 +52,24 @@ edisp = 'True'
 irfs = "'P8R3_SOURCE_V2'"
 catalog = '4FGL'
 
+
+#create working directory
+wpath = '/dataweb/scratchtools/'
+os.mkdir(wpath+ID)
+os.chdir(wpath+ID)
+
+#define data files
+ft1_list = glob(wpath+'*PH*')
+ft1 = 'events'+ID+'.txt'
+ascii.write(ft1_list, ft1)
+
+ft2 = wpath+ID+'_SC00.fits'
     
 #writing configuration file
 
-cFile = open('config.yaml', 'w')
+cFile_name = 'config'+ID+'.yaml'
+
+cFile = open(cFile_name, 'w')
 cFile.write("data:\n  evfile : "+ft1+"\n  scfile : "+ft2+"\n")
 cFile.write("\nbinning:\n  roiwidth : "+roiSize+"\n  binsz : "+binsz+"\n  binsperdec : "+binsperdec+"\n")
 cFile.write("\nselection:\n  tmin : "+str(tstart)+"\n  tmax : "+str(tstop)+"\n  evclass : "+evclass+"\n  ra : "+str(srcRA)+"\n  dec : "+str(srcDec)+"\n  zmax : "+zmax+"\n  emin : "+emin+"\n  emax : "+emax+"\n  evtype : "+evtype+"\n  filter : "+fil+"\n")
@@ -68,14 +83,14 @@ cFile.close()
 #####################
 
 #initializing analysis object
-gta = GTAnalysis('config.yaml',logging={'verbosity': 3})
+gta = GTAnalysis(cFile_name,logging={'verbosity': 3})
 
 gta.setup(overwrite = True)
 
 #first optimization run with output
 fit_res = gta.optimize()
 
-gta.write_roi('fit_optimize')
+gta.write_roi('fit_optimize_'+ID)
 
 #free parameters for full likelihood fit
 gta.free_sources(pars='norm')
@@ -87,7 +102,7 @@ gta.free_source('isodiff')
 #do the likelihood fit
 fit_results = gta.fit()
 if fit_results['fit_success']!=True:
-    gta.load_roi('fit_optimize.npy')
+    gta.load_roi('fit_optimize_'+ID+'.npy')
     gta.free_sources(free=False)
     gta.free_sources(pars='norm', distance = 3.0)
     gta.free_sources(distance = 1.)
@@ -95,7 +110,7 @@ if fit_results['fit_success']!=True:
     gta.free_source('isodiff')
     fit_res2 = gta.fit()
     if fit_results['fit_success']!=True:
-        gta.load_roi('fit_optimize.npy')
+        gta.load_roi('fit_optimize_'+ID+'.npy')
         gta.free_sources(free=False)
         gta.free_sources(pars='norm', distance = 1.5)
         gta.free_sources(distance = 0.5)
@@ -106,7 +121,7 @@ if fit_results['fit_success']!=True:
 fit_res = gta.optimize()
 
 #save results with 4FGL-only model
-gta.write_roi('fit_gtlike')
+gta.write_roi('fit_gtlike_'+ID)
 
 cat_results = open('cat_results.txt', 'w')
 for s in gta.roi.sources:
@@ -132,7 +147,7 @@ fit_res = gta.optimize()
 fit_res = gta.fit()
 
 #write output
-gta.write_roi('fit_srcfind')
+gta.write_roi('fit_srcfind_'+ID)
 
 
 
@@ -145,7 +160,7 @@ for s in gta.roi.sources:
 
 fit_res = gta.optimize()
 
-gta.write_roi('fit_srcfind_loc')
+gta.write_roi('fit_srcfind_loc_'+ID)
 
 
 
@@ -162,7 +177,7 @@ if gta.roi.sources[0]._data['offset']>gta.roi.sources[0]._data['pos_r99']:
     gta.free_source('isodiff')
     fit_res = gta.optimize()
     fit_res = gta.fit()
-    gta.write_roi('fit_testsrc')
+    gta.write_roi('fit_testsrc_'+ID)
     print '# Test source fitted successfully... #'
         if gta.roi[srcname]._data['ts']>25:
             print '# ...and we have a significant detection! (TS='+str(gta.roi[srcname]._data['ts'])+') Localizing... #'
@@ -171,7 +186,7 @@ if gta.roi.sources[0]._data['offset']>gta.roi.sources[0]._data['pos_r99']:
                 print '# Localization succeeded! #'
                 print '#Final optimization run...#'
                 fit_res = gta.optimize()
-                gta.write_roi('fit_detected_localized_optimized')
+                gta.write_roi('fit_detected_localized_optimized_'+ID)
             else:
                 print '# Localization failed! #'
                 print '# Running SED...#'
@@ -179,7 +194,7 @@ if gta.roi.sources[0]._data['offset']>gta.roi.sources[0]._data['pos_r99']:
         else:
             print '# ...but the source is not significantly detected (TS='+str(gta.roi[srcname]._data['ts'])+') #'
             print '# Writing source properties to outfile.dat #'
-            outfile=open('outfile.dat','w')
+            outfile=open('outfile_'+ID+'.dat','w')
             outfile.write('ROI data for source close to target:\n')
             outfile.write(str(gta.roi.sources[0]))
             outfile.write('\nROI center offset\t:\t'+str(gta.roi.sources[0]._data['offset'])+' degrees')
@@ -189,14 +204,14 @@ if gta.roi.sources[0]._data['offset']>gta.roi.sources[0]._data['pos_r99']:
             else:
                 outfile.write('\nEnergy flux in cgs units\t:\t'+str(1.6021766e-6*gta.roi.sources[0]._data['eflux'])+' +\- '+str(1.6021766e-6*gta.roi.sources[0]._data['eflux_err'])+' erg/cm**2/s')
             outfile.close()
-            gta.write_roi('fit_final', make_plots = True)
+            gta.write_roi('fit_final_'+ID, make_plots = True)
 else:
     print '# Source',gta.roi.sources[0].name,'is positionally consistent with target position! Optimizing and writing output...#'
     gta.free_source(gta.roi.sources[0].name)
     fit_res = gta.optimize()
     fit_res = gta.fit()
-    gta.write_roi('fit_final')
-    outfile=open('outfile.dat','w')
+    gta.write_roi('fit_final_'+ID)
+    outfile=open('outfile_'+ID+'.dat','w')
     outfile.write('ROI data for source close to target:\n')
     outfile.write(str(gta.roi.sources[0]))
     if gta.roi.sources[0]._data['ts']<25:
@@ -234,9 +249,9 @@ print '# Running gtdiffrsp... #'
 os.system('gtdiffrsp evfile = ft1_00.fits scfile = %s srcmdl = fit_final_00.xml irfs = P8R3_SOURCE_V2'%(ft2))
 
 print '# Running gtsrcprob... #'
-os.system('gtsrcprob evfile = ft1_00.fits scfile = %s outfile = srcprobs.fits srcmdl= fit_final_00.xml irfs = P8R3_SOURCE_V2'%(ft2))
+os.system('gtsrcprob evfile = ft1_00.fits scfile = %s outfile = srcprobs_'+ID+'.fits srcmdl= fit_final_00.xml irfs = P8R3_SOURCE_V2'%(ft2))
 
-probs_file = fits.open('srcprobs.fits')
+probs_file = fits.open('srcprobs_'+ID+'.fits')
 probs = probs_file[1].data
 probs_e = probs['ENERGY']/1.e3
 probs_t = probs['TIME']
@@ -254,7 +269,7 @@ for i in xrange(0,len(probs_e)):
 
 
 if probs_e2 != []:
-    outfile=open('outfile.dat','a')
+    outfile=open('outfile_'+ID+'.dat','a')
     outfile.write('\nE > 10 GeV photons with p > 0.8:')
     for i in xrange(0,len(probs_e2)):
         outfile.write('\nE = %.2f GeV; time : %s; prob = %f'%(probs_e2[i], probs_t2[i].iso, probs_p2[i]))
